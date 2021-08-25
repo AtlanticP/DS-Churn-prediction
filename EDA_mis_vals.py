@@ -70,6 +70,21 @@ df.drop('temp', inplace=True, axis=1)
 fig.tight_layout()    
 fig.savefig('/home/atl/Pictures/feats_with_nan_less0975.png')
 
+#%%
+# n = len(feats_cat_na)
+# fig, axes = plt.subplots(nrows=int(np.ceil(n/4)), ncols=4,
+#                        figsize=(15, n))
+
+# for idx, feat in enumerate(feats_cat_na):
+    
+#     df['temp'] = np.where(df[feat].isna(), 1, 0)  
+#     df.groupby(trg)['temp'].mean().plot(kind='bar', ax=axes[idx//4, idx%4], title=feat)
+
+# df.drop('temp', axis=1, inplace=True) 
+# fig.tight_layout()
+# fig.savefig('/home/atl/Pictures/cat_nans_targ.png')   
+# fig.set_title('Distribu')
+
 
 
     
