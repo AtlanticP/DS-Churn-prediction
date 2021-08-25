@@ -2,9 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import missingno as msno
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-# from sklearn import preprocessing as prp
+import pickle as pkl
+from sklearn.model_selection import train_test_split
 SEED = 32
 #%%
 PATH_DIR = '../../../bases/telecom-clients-prediction2'
@@ -12,13 +11,28 @@ FILE_NAME = 'orange_small_churn_train_data.csv'
 PATH_FILE = os.path.join(PATH_DIR, FILE_NAME)
 #%%
 df = pd.read_csv(PATH_FILE, index_col='ID')
+feats = df.columns
 feats_num = df.columns[:190]
 feats_cat = df.columns[190:-1]
 trg = df.columns[-1]
 print(df.shape)
 #%% drop elements where target is nan
 df.drop(np.where(df.iloc[:, -1].isna())[0], axis=0, inplace=True)
+#%%
+X = df.iloc[:, :-1].values  
+y = df.iloc[:, -1].values
+#%% split data and save test set
+X_train, X_test, y_train, y_test = train_test_split(X, y,                    
+                    test_size=0.25, shuffle=True, 
+                    stratify=y, random_state=SEED)
 
+df = pd.DataFrame(np.c_[X_train, y_train], columns=feats)
+df_test = pd.DataFrame(np.c_[X_test, y_test], columns=feats)
+
+with open('df_test.pkl', 'wb') as file:
+    pkl.dump(df_test, file)
+
+#%%
 df.iloc[:, -1].value_counts().to_dict() 
 #{-1.0: 16921, 1.0: 1377}
 
@@ -60,33 +74,29 @@ feats_num = list(set(feats_num_naless0925)-set(feats_g))
 feats_cat_na = df[feats_cat].columns[df[feats_cat].isna().any()]
 df[feats_cat_na].isna().mean().plot.bar()
 
-#%%
-# n = len(feats_cat_na)
-# fig, axes = plt.subplots(nrows=int(np.ceil(n/4)), ncols=4,
-#                        figsize=(15, n))
-
-# for idx, feat in enumerate(feats_cat_na):
-    
-#     df['temp'] = np.where(df[feat].isna(), 1, 0)  
-#     df.groupby(trg)['temp'].mean().plot(kind='bar', ax=axes[idx//4, idx%4], title=feat)
-
-# df.drop('temp', axis=1, inplace=True) 
-# fig.tight_layout()
-# fig.savefig('/home/atl/Pictures/cat_nans_targ.png')   
-# fig.set_title('Distribu')
 #%% remove features where nan more than 10 percent
 thresh = len(df)*0.9
 feats_cat_na = df[feats_cat_na].dropna(thresh=thresh, axis=1).columns
 df[feats_cat_na].isna().mean().plot.bar()
 #%% Create new category for missing values
-feat = feats_cat_na[0]
+
 feats_cat = []
 for feat in feats_cat_na:
     df[feat] = np.where(df[feat].isna(), 'Rare', df[feat])
     feats_cat.append(feat)
-#%% 
-df[feats_num+feats_cat].isna().any().any() # False
+#%%
+df[feats_num+feats_cat+ ['labels']].isna().any().any() # False
+#%% save my train_set for further processing
+train_set_filled = {
+    'df_train': df[feats_num+feats_cat+['labels']],
+    'feats_num': feats_num,
+    'feats_cat': feats_cat
+    }
 
+with open('pkl/df_train_filled.pkl', 'wb') as file:
+    pkl.dump(train_set_filled, file)
+    
+#%%
 
 
 
