@@ -35,9 +35,15 @@ for feat in feats_cat:
 #%% save data to train model
 df.drop(feats_cat, axis=1, inplace=True)
 
+train_set_filled = {
+    'df_train': df,
+    'feats_num': feats_num,
+    'feats_cat': feats_cat_new
+    }
+
 with open('pkl/df_train_prp.pkl', 'wb') as file:
     
-    pkl.dump(df, file)
+    pkl.dump(train_set_filled, file)
 
         
         
