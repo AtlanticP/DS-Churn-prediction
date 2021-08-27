@@ -29,7 +29,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y,
 df = pd.DataFrame(np.c_[X_train, y_train], columns=feats)
 df_test = pd.DataFrame(np.c_[X_test, y_test], columns=feats)
 
-with open('df_test.pkl', 'wb') as file:
+with open('pkl/df_test.pkl', 'wb') as file:
     pkl.dump(df_test, file)
 
 #%%
@@ -95,10 +95,6 @@ train_set_filled = {
 
 with open('pkl/df_train_filled.pkl', 'wb') as file:
     pkl.dump(train_set_filled, file)
-    
-#%%
-
-
 
 
 
