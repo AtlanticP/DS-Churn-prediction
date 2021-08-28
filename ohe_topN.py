@@ -2,16 +2,6 @@ import pandas as pd
 import numpy as np
 SEED = 32
 #%%
-lst = list('abcdef')
-n = len(lst)
-
-np.random.seed(SEED)
-idx = np.random.randint(n, size=(5, 3))
-X = np.array(lst)[idx]
-dft = pd.DataFrame(X)
-dft.columns = [f'col{i}' for i in range(dft.shape[1])]
-
-#%%
 from sklearn.base import TransformerMixin
 
 class OHE_topN(TransformerMixin):
@@ -32,7 +22,7 @@ class OHE_topN(TransformerMixin):
             df = X
             self.feats = df.columns
         
-        if isinstance(dft.columns, pd.RangeIndex):
+        if isinstance(df.columns, pd.RangeIndex):
             df.columns = self.feats
             
         return df
@@ -70,11 +60,19 @@ class OHE_topN(TransformerMixin):
         self.fit(X)
         return self.transform(X)
 #%%
+# lst = list('abcdef')
+# n = len(lst)
+
+# np.random.seed(SEED)
+# idx = np.random.randint(n, size=(5, 3))
+# X = np.array(lst)[idx]
+# dft = pd.DataFrame(X)
+# dft.columns = [f'col{i}' for i in range(dft.shape[1])]
 
 # X = dft.values
-X = dft.copy()
-ohe = OHE_topN(top_n=3)    
-# ohe.fit_transform(X, y=None)
-t = ohe.fit_transform(X)
-# t = ohe.feats_labels
-print(t)    
+# X = dft.copy()
+# ohe = OHE_topN(top_n=3)    
+# # ohe.fit_transform(X, y=None)
+# t = ohe.fit_transform(X)
+# # t = ohe.feats_labels
+# print(t)    
