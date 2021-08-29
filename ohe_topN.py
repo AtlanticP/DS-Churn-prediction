@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 SEED = 32
 #%%
-from sklearn.base import TransformerMixin
+from sklearn.base import TransformerMixin, BaseEstimator
 
-class OHE_topN(TransformerMixin):
+class OHE_topN(TransformerMixin, BaseEstimator):
     
     def __init__(self, top_n=10):
         

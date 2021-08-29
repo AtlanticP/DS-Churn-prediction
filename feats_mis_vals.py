@@ -42,10 +42,10 @@ df.iloc[:, -1].value_counts().to_dict()
 fig = msno.matrix(df)
 fig = fig.get_figure()
 fig.savefig('/home/atl/Pictures/msno.png') 
-#%% HANDLING NUMERICAL MIS. DATA. Remove completly nan columns 
+#%% Remove completly nan columns 
 feats_num = df[feats_num].dropna(how='all', axis=1).columns
 feats_cat = df[feats_cat].dropna(how='all', axis=1).columns
-#%% Get feats with nan less than 0.925
+#%% HANDLING NUMERICAL MIS. DATA. Get feats with nan less than 0.925
 
 mask = (df[feats_num].isna().mean() <= 0.925)
 feats_num_naless0925 = mask[mask].index
