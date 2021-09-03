@@ -98,4 +98,5 @@ for title, model in tqdm(models.items()):
         }
 
 results = pd.DataFrame(results).T
-print(results)
+#%%
+print(results.round(3))
