@@ -1,2 +1,5 @@
 *.pkl
 *.pyc
+*.ods
+*.ods#
+
