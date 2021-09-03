@@ -1,10 +1,6 @@
 
 import lightgbm as lgb
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import SGDClassifier
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import roc_auc_score, recall_score 
@@ -36,7 +32,6 @@ ifeats_cat = slice(41, X.shape[1])
 #%%
 transformer = ColumnTransformer(
         transformers = [
-            ('num', StandardScaler(), ifeats_num),
             ('cat', BinaryEncoder(), ifeats_cat)],
         remainder = 'passthrough',
         n_jobs = -1,
