@@ -5,7 +5,8 @@ dct = {}
 models = [
           'rf: be, stnd', 'lgbm: be, stnd', 'rf', 'lgbm: ohe_t10, stnd', 
            'sgd: ohe_t10, stnd', 'knn: ohe_t10, stnd', 'svm: ohe_t10, stnd',
-           'rf: le (max_val)', 'lgbm: le (max_val)'
+           'rf: le (max_val)', 'lgbm: le (max_val)',
+           'rf: le(max_val), stnd', 'lgbm: le (max val), stnd',
           ]
 
 lst = '''
@@ -19,6 +20,8 @@ roc_auc  recall     prec      acc
 0.584   0.600  0.102  0.570
 0.59850  0.58084  0.10978  0.61358
 0.59462  0.62442  0.10464  0.56934
+0.597   0.576  0.109  0.614
+0.586   0.593  0.103  0.580
 '''
 split = lst.split('\n')
 index = split[1].split()

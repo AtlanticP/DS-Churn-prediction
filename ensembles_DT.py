@@ -10,6 +10,7 @@ from imblearn.pipeline import make_pipeline
 from imblearn.under_sampling import RandomUnderSampler
 
 from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import StandardScaler
 
 from tqdm import tqdm
 import pickle as pkl
@@ -50,7 +51,8 @@ transformer = ColumnTransformer(
                 'cat', 
                 OrdinalEncoder(handle_unknown='use_encoded_value', 
                                unknown_value=max_value), 
-                feats_cat)
+                feats_cat),
+            ('num', StandardScaler(), feats_num)
             ],
         remainder = 'passthrough',
         n_jobs = -1,
