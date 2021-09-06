@@ -1,2 +1,7 @@
 *.pkl
 *.pyc
+*.ods
+*.ods#
+media/*
+__pycache__
+pkl
