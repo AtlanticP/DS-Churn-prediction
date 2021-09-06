@@ -3,11 +3,18 @@ import pandas as pd
 
 dct = {}
 models = [
-          'rf: be, stnd', 'lgbm: be, stnd', 'rf', 'lgbm: ohe_t10, stnd', 
-           'sgd: ohe_t10, stnd', 'knn: ohe_t10, stnd', 'svm: ohe_t10, stnd',
-           'rf: le (max_val)', 'lgbm: le (max_val)',
-           'rf: le(max_val), stnd', 'lgbm: le (max val), stnd',
-          ]
+    'd1 rf: be, stnd',
+    'd1 lgbm: be, stnd',
+    'd1 rf',
+    'd1 lgbm: ohe_t10, stnd',
+    'd1 sgd: ohe_t10, stnd',
+    'd1 knn: ohe_t10, stnd',
+    'd1 svm: ohe_t10, stnd',
+    'd1 rf: le (max_val)',
+    'd1 lgbm: le (max_val)',
+    'd1 rf: le(max_val), stnd',
+    'd1 lgbm: le (max val), stnd',
+    ]
 
 lst = '''
 roc_auc  recall     prec      acc
