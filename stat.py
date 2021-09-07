@@ -31,6 +31,10 @@ models = [
     'd2 lgbm: SS, be; rus',    
     'd2 rf: SS, le(max_val); rus',    
     'd2 lgbm: SS, le(max_val); rus',  
+    'd2 lgbm: SS, ohe_top10; rus',    
+    'd2 lgbm: SS, ohe_top10; tom',
+    'd2 lgbm: SS, ohe_top10; edited',
+    'd2 lgbm: SS, ohe_top10; smote_top',
 ]
 #%%
 
@@ -64,6 +68,10 @@ roc_auc  recall     prec      acc
 0.61534  0.64284  0.11280  0.59200
 0.613   0.632  0.113  0.598
 0.618   0.659  0.114  0.583
+0.631   0.623  0.123  0.638
+0.505   0.014  0.192  0.922
+0.523   0.056  0.310  0.919
+0.510   0.025  0.274  0.921
 '''
 #%% 
 print(lst.split('\t'))
@@ -78,5 +86,5 @@ for model, line in zip(models, split[2:]):
 
 df = pd.DataFrame(dct, index=index)
 df = df.T.sort_values(by='roc_auc', ascending=False).round(3)
-df.sort_index(inplace=True)
+# df.sort_index(inplace=True)
 print(df) 

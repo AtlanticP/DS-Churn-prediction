@@ -7,9 +7,11 @@ from sklearn.metrics import roc_auc_score, recall_score
 from sklearn.metrics import accuracy_score, precision_score
 
 from imblearn.pipeline import make_pipeline
-from imblearn.under_sampling import RandomUnderSampler
+from imblearn.under_sampling import RandomUnderSampler, TomekLinks
+from imblearn.under_sampling import EditedNearestNeighbours
+from imblearn.combine import SMOTETomek
 
-from sklearn.preprocessing import OrdinalEncoder
+from ohe_topN import OHE_topN
 from sklearn.preprocessing import StandardScaler
 
 from tqdm import tqdm
@@ -47,29 +49,27 @@ max_value = get_max_value(df, feats_cat)
 
 transformer = ColumnTransformer(
         transformers = [
-            (
-                'cat', 
-                OrdinalEncoder(handle_unknown='use_encoded_value', 
-                               unknown_value=max_value), 
-                feats_cat),
-            ('num', StandardScaler(), feats_num)
-            ],
+            ('num', StandardScaler(), feats_num),
+            ('cat', OHE_topN(top_n=10), feats_cat)],
         remainder = 'passthrough',
         n_jobs = -1,
         verbose = True
         )
 #%% Resampling data to balance set
-rus = RandomUnderSampler(random_state=SEED)
-#%% Models
-models = {
-    'rf': RandomForestClassifier(random_state=SEED),
-    'lgbm': lgb.LGBMClassifier(random_state=SEED),
+samplers = {
+    'rus': RandomUnderSampler(random_state=SEED),
+    'tom': TomekLinks(n_jobs=-1),
+    'edited': EditedNearestNeighbours(n_jobs=-1),
+    'smote_tom': SMOTETomek(n_jobs=-1, random_state=SEED)    
     }
-#%%
+#%% model
+lgbm = lgb.LGBMClassifier(random_state=SEED)
+#%% cross validation
 results = {}  # overall results 
 
-for title, model in tqdm(models.items()):
-
+for title, sampler in tqdm(samplers.items()):
+    
+    print(title)
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
     
     rocs = []    # RocAuc score of the current model
@@ -77,9 +77,11 @@ for title, model in tqdm(models.items()):
     accs = []
     precs = []
     
-    for itrain, itest in skf.split(X, y):
+    for idx, (itrain, itest) in enumerate(skf.split(X, y), start=1):
         
-        pipe = make_pipeline(transformer, rus, model)
+        print(title, idx)
+        
+        pipe = make_pipeline(transformer, sampler, lgbm)
         pipe.fit(X.iloc[itrain, :], y[itrain])
         preds = pipe.predict(X.iloc[itest, :])
         roc = roc_auc_score(y[itest], preds).round(4)
