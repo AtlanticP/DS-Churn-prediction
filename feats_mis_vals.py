@@ -41,10 +41,10 @@ feats = df.columns
 feats_num = df.columns[:190]
 feats_cat = df.columns[190:-1]
 trg = df.columns[-1]
-print(df.shape)     # (18299, 231)
+print('shape of raw data:', df.shape)     # (18299, 231)
 #%% drop elements where target is nan
 df.drop(np.where(df.iloc[:, -1].isna())[0], axis=0, inplace=True)
-print(df.shape)  # (18298, 231)
+print('shape of nan-target: ', df.shape)  # (18298, 231)
 #%%
 X = df.iloc[:, :-1].values  
 y = df.iloc[:, -1].values
@@ -59,12 +59,16 @@ df_test = pd.DataFrame(np.c_[X_test, y_test], columns=feats)
 with open('pkl/df_test.pkl', 'wb') as file:
     pkl.dump(df_test, file)
 
+print('shape of df_train:', df.shape)
+print('shape of df_test:', df_test.shape)
 #%%
 df.iloc[:, -1].value_counts().to_dict() 
 #{-1.0: 12690, 1.0: 1033}
 
 (df.iloc[:, -1].value_counts()/len(df)).round(3).to_dict()
 # {-1.0: 0.925, 1.0: 0.075}
+#%%
+print('Handling missing values')
 #%% Visualize Missing values
 # fig = msno.matrix(df)
 # fig = fig.get_figure()
@@ -78,12 +82,26 @@ mask = (df[feats_num].isna().mean() >= 0.925)
 feats_to_del = df[feats_num].loc[:, mask].columns
 feats_num = list(filter(lambda x: x not in feats_to_del, feats_num))
 df.drop(feats_to_del, inplace=True, axis=1)
+df_test.drop(feats_to_del, inplace=True, axis=1)
 #%% Relationship between MVs and target
 
 # plot_relations(df, feats_num, 'rels_num')
-#%% KNN Imputation
+#%% KNN Imputation, fit and transform train_data
 
-df[feats_num] = KNNImputer().fit_transform(df[feats_num])
+# imputer = KNNImputer()
+# imputer.fit(df[feats_num])
+with open('pkl/imputer_knn.pkl', 'rb') as file:
+    imputer = pkl.load(file)
+
+df[feats_num] = imputer.transform(df[feats_num])
+df_test[feats_num] = imputer.transform(df_test[feats_num])
+
+print('\nNumerical data. KNN imputation')
+print('shape of df_train:', df.shape)
+print('shape of df_test:', df_test.shape)
+
+# with open('pkl/knn_imputer.pkl', 'wb') as file:
+#     pkl.dump(imputer, file)
 #%% HANDLING MISSING VALUES. CATEGORICAL DATA. 
 #%% Relationship between MVs and target
 
@@ -94,6 +112,11 @@ feats_to_del = [f'Var{col}' for col in feats_to_del]
 
 feats_cat = list(filter(lambda x: x not in feats_to_del, feats_cat))
 df.drop(feats_to_del, axis=1, inplace=True)
+df_test.drop(feats_to_del, axis=1, inplace=True)
+
+print('\nCategorical data. Creating new features replacing nan values with "rare" category')
+print('shape of df_train:', df.shape)
+print('shape of df_test:', df_test.shape)
 #%% Relationship between MVs and target. Partially deleted feats.
 
 # plot_relations(df, feats_cat, file_name='MV_targ2.png')
@@ -103,11 +126,20 @@ feats_to_new = [194, 197, 199, 200, 206, 214, 223, 225, 229]
 feats_to_new = [f'Var{col}' for col in feats_to_new]
 
 for feat in feats_to_new:
+    
     new = 'isna_' + feat
     feats_cat.append(new)
+    
     df[new] = np.where(df[feat].isna(), 'missing', 'existing')
     df[feat] = np.where(df[feat].isna(), 'rare', df[feat])
     
+    df_test[new] = np.where(df_test[feat].isna(), 'missing', 'existing')
+    df_test[feat] = np.where(df_test[feat].isna(), 'rare', df_test[feat])
+
+print('\nCategorical data. Creating new features replacing nan values with "rare" category')
+print('shape of df_train:', df.shape)
+print('shape of df_test:', df_test.shape)    
+
 #%% MCAR: inpute 'missing'
 mask = df[feats_cat].isna().any()
 feats_cat_na = df[feats_cat].columns[mask]    
@@ -119,6 +151,35 @@ for feat in feats_cat:
 
     top = df[feat].value_counts().nlargest(1).index.values[0]
     df[feat].fillna(top, inplace=True)
+    df_test[feat].fillna(top, inplace=True)
+
+print('\nCategorical data. MCAR: most_frequent')
+print('shape of df_train:', df.shape)
+print('shape of df_test:', df_test.shape)        
+#%%
+isna = df[feats_num+feats_cat+ ['labels']].isna().any().any() # False
+print('train is NaN:', isna)
+isna = df_test[feats_num+feats_cat+ ['labels']].isna().any().any() # False
+print('test is NaN:', isna)
+#%%
+df[trg] = df[trg].astype(int)
+df_test[trg] = df_test[trg].astype(int)
+#%% save my train and test set for further processing
+train_set_filled = {
+    'df_train': df[feats_num+feats_cat+['labels']],
+    'feats_num': feats_num,
+    'feats_cat': feats_cat
+    }
+with open('pkl/df_train_filled.pkl', 'wb') as file:
+    pkl.dump(train_set_filled, file)
+
+test_set_filled = {
+    'df_test': df[feats_num+feats_cat+['labels']],
+    'feats_num': feats_num,
+    'feats_cat': feats_cat
+    }
+with open('pkl/df_test_filled.pkl', 'wb') as file:
+    pkl.dump(test_set_filled, file)
 #%%
 # from sklearn.tree import DecisionTreeClassifier
 # from sklearn.ensemble import RandomForestClassifier
@@ -155,20 +216,6 @@ for feat in feats_cat:
 #                       max_display=len(feats_cat), show=False)                                                  
     
 #     plt.savefig(f'media/shap_values_cat_{title}')
-#%%
-isna = df[feats_num+feats_cat+ ['labels']].isna().any().any() # False
-print('Is NaN:', isna)
-#%% save my train_set for further processing
-train_set_filled = {
-    'df_train': df[feats_num+feats_cat+['labels']],
-    'feats_num': feats_num,
-    'feats_cat': feats_cat
-    }
-
-with open('pkl/df_train_filled.pkl', 'wb') as file:
-    pkl.dump(train_set_filled, file)
-
-
 
 
 
