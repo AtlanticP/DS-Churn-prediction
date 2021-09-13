@@ -28,14 +28,20 @@ class OHE_topN(TransformerMixin, BaseEstimator):
         return df
         
     def fit(self, X, y=None):
-        
+
         df = self.convert_df(X)  
                
         for feat in self.feats:
             
-            # getting labels with largest frequencies in a feat
-            lst_top = df[feat].value_counts().nlargest(self.top_n).index
-            self.feats_labels[feat] = lst_top
+            if self.top_n: 
+                # getting labels with largest frequencies in a feat
+                lst_top = df[feat].value_counts().nlargest(self.top_n).index
+                self.feats_labels[feat] = lst_top
+            
+            else:    
+                # if None return the whole list of labels
+                lst = df[feat].value_counts().index
+                self.feats_labels[feat] = lst
     
         return self
     
@@ -59,20 +65,23 @@ class OHE_topN(TransformerMixin, BaseEstimator):
         
         self.fit(X)
         return self.transform(X)
-#%%
+# #%%
 # lst = list('abcdef')
 # n = len(lst)
 
 # np.random.seed(SEED)
-# idx = np.random.randint(n, size=(5, 3))
+# idx = np.random.randint(n, size=(3, 2))
 # X = np.array(lst)[idx]
 # dft = pd.DataFrame(X)
 # dft.columns = [f'col{i}' for i in range(dft.shape[1])]
 
 # X = dft.values
 # X = dft.copy()
-# ohe = OHE_topN(top_n=3)    
-# # ohe.fit_transform(X, y=None)
-# t = ohe.fit_transform(X)
-# # t = ohe.feats_labels
-# print(t)    
+# ohe = OHE_topN(top_n=2)    
+
+# ohe.fit(X)
+# df_my = ohe.transform(X)
+
+# from sklearn.preprocessing import OneHotEncoder
+# ohe = OneHotEncoder(sparse=False)
+# df_ohe = ohe.fit_transform(X)

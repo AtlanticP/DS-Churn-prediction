@@ -180,42 +180,7 @@ test_set_filled = {
     }
 with open('pkl/df_test_filled.pkl', 'wb') as file:
     pkl.dump(test_set_filled, file)
-#%%
-# from sklearn.tree import DecisionTreeClassifier
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.ensemble import GradientBoostingClassifier
 
-# tree = DecisionTreeClassifier(random_state=SEED)
-# rf = RandomForestClassifier(random_state=SEED)
-# gb = GradientBoostingClassifier(random_state=SEED)
-
-# models = {'tree': tree, 'rf': rf, 'gb': gb}
-
-# #%% Undersample data
-
-# df_churn = df.loc[df[trg] == 1, :]
-# n_samples = df_churn.shape[0]
-# df_nchurn = df.loc[df[trg] == -1, :].sample(n_samples)
-# df_small = pd.concat([df_churn, df_nchurn], axis=0)
-# df_small = df_small.reindex(np.random.permutation(df_small.index))
-
-# X_small, y_small = df_small.loc[:, feats_cat], df_small.loc[:, trg].astype(int)
-
-# t = df_small[trg]
-# #%%
-# import shap 
-# from sklearn.preprocessing import OrdinalEncoder
-
-# X_cleaned = OrdinalEncoder().fit_transform(X_small)
-
-# for title, model in models.items():
-    
-#     model.fit(X_cleaned, y_small)
-#     explainer = shap.TreeExplainer(model).shap_values(X_cleaned)
-#     fig = shap.summary_plot(explainer, X_cleaned, feature_names=feats_cat,
-#                       max_display=len(feats_cat), show=False)                                                  
-    
-#     plt.savefig(f'media/shap_values_cat_{title}')
 
 
 

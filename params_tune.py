@@ -57,10 +57,11 @@ def objective(params, X, y):
             roc = roc_auc_score(y[itest], preds)
             rocs.append(roc)
             
+            params['n_estimators'] = lgbm.best_iteration_
+            
         return {'loss': np.mean(rocs), 
                 'params': params, 
                 'status': STATUS_OK,
-                'n_estimators': lgbm.best_iteration_                
                 }    
     
     except ValueError as e:
@@ -85,7 +86,7 @@ trials = Trials()
 
 best = fmin(fn=partial(objective, X=X_clean, y=y), 
             space=space, algo=tpe.suggest, 
-            max_evals=5, 
+            max_evals=500, 
             trials=trials, 
             rstate=np.random.RandomState(SEED), 
             verbose=-1, 
@@ -94,9 +95,9 @@ best = fmin(fn=partial(objective, X=X_clean, y=y),
 res = trials.results
 res = [{**x, **x['params']} for x in res]
 
-df_res = pd.DataFrame(res)
-df_res.drop(labels=['status', 'params', 'first_metric_only'], axis=1, inplace=True)
-df_res.sort_values(by='loss', ascending=False, inplace=True)
+df_hp = pd.DataFrame(res)
+df_hp.drop(labels=['status', 'params', 'first_metric_only'], axis=1, inplace=True)
+df_hp.sort_values(by='loss', ascending=False, inplace=True)
 
-with open('pkl/hp_res.pkl', 'wb') as file:    
-    pkl.dump(df_res, file)
+with open('pkl/df_hp.pkl', 'wb') as file:    
+    pkl.dump(df_hp, file)
