@@ -6,4 +6,5 @@ media/*
 /y_test.csv
 .ipynb_checkpoints/
 thoughts.txt
+Churn_preds.ipynb
 
