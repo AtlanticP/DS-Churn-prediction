@@ -3,3 +3,7 @@
 *.ods
 *.ods#
 media/*
+/y_test.csv
+.ipynb_checkpoints/
+thoughts.txt
+
