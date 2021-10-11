@@ -6,8 +6,6 @@ import os
 # import missingno as msno
 import pickle as pkl
 from sklearn.model_selection import train_test_split
-# from sklearn.impute import SimpleImputer
-# from sklearn.impute import KNNImputer
 import numpy as np 
 import matplotlib.pyplot as plt
 import seaborn as sns 
@@ -96,52 +94,57 @@ for feat in feats_num:
     card = df_train[feat].value_counts().size   # cardinality
     if card < 30:
         feats_tocat.append(feat)
-        print(feat, card)
-        
+        print('to feats_cat:', feat, card)
+
 feats_num = list(filter(lambda feat: feat not in feats_tocat, feats_num))        
+X_train.loc[:, feats_tocat] = X_train[feats_tocat].astype(str)
+X_test.loc[:, feats_tocat] = X_test[feats_tocat].astype(str)
+X_train.loc[:, feats_tocat] = X_train[feats_tocat].replace('nan', np.nan)
+X_test.loc[:, feats_tocat] = X_test[feats_tocat].replace('nan', np.nan)
 feats_cat = feats_cat + feats_tocat
 #%% NUMERICAL FEATURES
 #%% plot kde of train, valid, test sets
 
-n = len(feats_num)
-ncols = 5
-nrows = int(np.ceil(n/ncols))
+# n = len(feats_num)
+# ncols = 5
+# nrows = int(np.ceil(n/ncols))
 
-fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3, nrows*3))
+# fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3, nrows*3))
 
-for idx, feat in enumerate(feats_num[:n]):
+# for idx, feat in enumerate(feats_num[:n]):
     
-    ax = axes[idx//ncols, idx%ncols]
-    sns.kdeplot(x=X_train[feat], ax=ax, alpha=0.5, label='X_train')
-    sns.kdeplot(x=X_valid[feat], ax=ax, alpha=0.5, label='X_valid')
-    sns.kdeplot(x=X_test[feat], ax=ax, alpha=0.5, label='X_test')
-    ax.set_title(feat)
-    ax.legend()
+#     ax = axes[idx//ncols, idx%ncols]
+#     sns.kdeplot(x=X_train[feat], ax=ax, alpha=0.5, label='X_train')
+#     sns.kdeplot(x=X_valid[feat], ax=ax, alpha=0.5, label='X_valid')
+#     sns.kdeplot(x=X_test[feat], ax=ax, alpha=0.5, label='X_test')
+#     ax.set_title(feat)
+#     ax.legend()
 
-fig.tight_layout()    
-fig.savefig('media/feats_num_kde_tr_vl_ts.png')
+# fig.tight_layout()    
+# fig.savefig('media/feats_num_kde_tr_vl_ts.png')
 #%% plot boxplot, kde, boxplot log(x), kde log(x)  
 
-nrows = len(feats_num)
-ncols = 4
+# nrows = len(feats_num)
+# ncols = 4
 
-fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3, nrows*3))
-feat = feats_num[0]
+# fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3, nrows*3))
+# feat = feats_num[0]
 
-for idx, feat in enumerate(feats_num[:nrows]):
+# for idx, feat in enumerate(feats_num[:nrows]):
     
-    sns.boxplot(y=X_train[feat], ax=axes[idx, 0], x=y_train)
-    axes[idx, 0].set_title(feat)
-    sns.kdeplot(x=feat, data=X_train, hue=y_train, ax=axes[idx, 1])
-    axes[idx, 1].set_title(feat)
-    sns.boxplot(y=X_train[feat].apply(np.log), ax=axes[idx, 2], x=y_train)
-    axes[idx, 2].set_title(f'ln{feat}')
-    sns.kdeplot(x=X_train[feat].apply(lambda x: np.log(x+1e-5)), hue=y_train, ax=axes[idx, 3])
-    axes[idx, 3].set_title(f'log({feat})')
+#     sns.boxplot(y=X_train[feat], ax=axes[idx, 0], x=y_train)
+#     axes[idx, 0].set_title(feat)
+#     sns.kdeplot(x=feat, data=X_train, hue=y_train, ax=axes[idx, 1])
+#     axes[idx, 1].set_title(feat)
+#     sns.boxplot(y=X_train[feat].apply(np.log), ax=axes[idx, 2], x=y_train)
+#     axes[idx, 2].set_title(f'ln{feat}')
+#     sns.kdeplot(x=X_train[feat].apply(lambda x: np.log(x+1e-5)), hue=y_train, ax=axes[idx, 3])
+#     axes[idx, 3].set_title(f'log({feat})')
 
-fig.tight_layout()
-fig.savefig('media/log_boxplot_kde.png')
+# fig.tight_layout()
+# fig.savefig('media/log_boxplot_kde.png')
 #%% feats with log-transform
+
 feats_tolog = [6, 21, 22, 25, 94, 109, 119, 123, 125, 160]
 feats_tolog = [f'Var{var}' for var in feats_tolog]
 
@@ -150,59 +153,58 @@ feats_tolater = [f'Var{var}' for var in feats_tolater]
 
 feats_torem = set(feats_num)-set(feats_tolog)-set(feats_tolater)
 feats_torem = sorted(feats_torem, key=lambda x: int(x[3:]))
-print('feats to log transform:', feats_torem, '\n')
+print('feats to log transform:', ' '.join(feats_torem), '\n')
 
 for feat in feats_tolog:
     X_train[feat] = X_train[feat].apply(np.log)
 #%% HANDLING OUTLIERS (IQR method)
 
 nrows = len(feats_num)
-# nrows = 2
 ncols = 4
 
-fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3, nrows*3))
+# fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3, nrows*3))
 
 for idx, feat in enumerate(feats_num[:nrows]):
     
     sample = X_train.loc[:, feat] 
-    ax=axes[idx, 0]
-    sns.boxplot(y=sample , ax=axes[idx, 0])
-    axes[idx, 0].set_title(f'{feat}. With outliers')
-    sns.kdeplot(x=sample, ax=axes[idx, 1])
-    axes[idx, 1].set_title(f'{feat}. With outliers')
+    # ax=axes[idx, 0]
+    # sns.boxplot(y=sample , ax=axes[idx, 0])
+    # axes[idx, 0].set_title(f'{feat}. With outliers')
+    # sns.kdeplot(x=sample, ax=axes[idx, 1])
+    # axes[idx, 1].set_title(f'{feat}. With outliers')
 
     # transformation train, valid, test
     handler = OUT_handler(method='iqr')
     handler.fit(sample.values)
-    sample = handler.transform(sample) 
+    X_train.loc[:, feat] = handler.transform(sample) 
     X_valid.loc[:, feat] = handler.transform(X_valid.loc[:, feat])
     X_test.loc[:, feat] = handler.transform(X_test.loc[:, feat])
     
-    sns.boxplot(y=sample, ax=axes[idx, 2])
-    axes[idx, 2].set_title(f'{feat}. Without outliers')
-    sns.kdeplot(x=sample, ax=axes[idx, 3])
-    axes[idx, 3].set_title(f'{feat}. Without outliers')
+#     sns.boxplot(y=sample, ax=axes[idx, 2])
+#     axes[idx, 2].set_title(f'{feat}. Without outliers')
+#     sns.kdeplot(x=sample, ax=axes[idx, 3])
+#     axes[idx, 3].set_title(f'{feat}. Without outliers')
     
-fig.tight_layout()
-fig.savefig('media/outliers_handle.png')    
+# fig.tight_layout()
+# fig.savefig('media/outliers_handle.png')    
 #%% save my train, valid and test sets for further processing
 
 train_set_out = {
-    'df_train': pd.concat([X_train, y_train], axis=1),
+    'df_train': pd.concat([X_train[feats_num+feats_cat], y_train], axis=1),
     'feats_num': feats_num,
     'feats_cat': feats_cat
     }
-with open('pkl/df_train_out.pkl', 'wb') as file:
+with open('pkl/df_out_train.pkl', 'wb') as file:
     pkl.dump(train_set_out, file)
     
 valid_set_out = {
-    'df_valid': pd.concat([X_valid, y_valid], axis=1),
+    'df_valid': pd.concat([X_valid[feats_num+feats_cat], y_valid], axis=1),
     }
-with open('pkl/df_valid_out.pkl', 'wb') as file:
+with open('pkl/df_out_valid.pkl', 'wb') as file:
     pkl.dump(valid_set_out, file)    
 
 test_set_out = {
     'X_test': X_test[feats_num+feats_cat],
     }
-with open('pkl/df_test_filled.pkl', 'wb') as file:
-    pkl.dump(test_set_out, file)
+with open('pkl/X_out_test.pkl', 'wb') as file:
+    pkl.dump(test_set_out, file)  

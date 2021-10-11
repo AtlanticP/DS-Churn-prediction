@@ -1,64 +1,86 @@
 import lightgbm as lgb
 from imblearn.under_sampling import RandomUnderSampler
 
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import roc_auc_score
 
-from ohe_topN import OHE_topN  
+# from ohe_topN import OHE_topN
+  
 import pickle as pkl  
 import pandas as pd
 from tqdm import tqdm
-import shap 
+# import shap 
 import matplotlib.pyplot as plt
 
 import numpy as np 
-import math
-
+# import math
+#%%
 SEED = 32
-#%% load filled-nnan data: train, valid, test set
-with open('pkl/df_train_filled.pkl', 'rb') as file:
-    data = pkl.load(file)
+with open('pkl/df_filled_train.pkl', 'rb') as file:
+    DATA = pkl.load(file)
+    
+df_train = DATA['df_train']
+feats_num = DATA['feats_num']
+feats_cat = DATA['feats_cat']
 
-df_train = data['df_train']
-feats_num = data['feats_num']
-feats_cat = data['feats_cat']
-X_train, y_train = df_train.iloc[:, :-1], df_train.iloc[:, -1]
+with open('pkl/df_filled_valid.pkl', 'rb') as file:
+    DATA = pkl.load(file)
+df_valid = DATA['df_valid']
 
-# load valid set
-with open('pkl/df_valid_filled.pkl', 'rb') as file:
-    data = pkl.load(file)
+with open('pkl/X_filled_test.pkl', 'rb') as file:
+    DATA = pkl.load(file)
+X_test = DATA['X_test']
 
-df_valid = data['df_valid']
-X_valid, y_valid = df_valid.iloc[:, :-1], df_valid.iloc[:, -1]
+print('shape of df_train:', df_train.shape)
+print('shape of df_valid:', df_valid.shape)
+print('shape of X_test:', X_test.shape)
 
-# load test set
-with open('pkl/df_test_filled.pkl', 'rb') as file:
-    data = pkl.load(file)
+X_train = df_train.iloc[:, :-1]
+y_train = df_train.iloc[:, -1]
 
-df_test = data['df_test']
-X_test = df_test.copy()
-#%% FEATURE TRANSFORMATION
-print('train transformation')
+X_valid = df_valid.iloc[:, :-1]
+y_valid = df_valid.iloc[:, -1]
+#%% Numerical features
+
+print('Transformation of numerical features. Standard scaling.')
 # numerical features
-X_num_train = StandardScaler().fit_transform(X_train[feats_num])
-X_num_train = pd.DataFrame(X_num_train, columns=feats_num)
-X_num_valid = StandardScaler().fit_transform(X_valid[feats_num])
-X_num_valid = pd.DataFrame(X_num_valid, columns=feats_num)
-X_num_test = StandardScaler().fit_transform(X_test[feats_num])
+scaler = StandardScaler()
+X_num_train = scaler.fit_transform(X_train[feats_num])
+X_num_train = pd.DataFrame(X_num_train, columns=feats_num, index=X_train.index)
+X_num_valid = scaler.transform(X_valid[feats_num])
+X_num_valid = pd.DataFrame(X_num_valid, columns=feats_num, index=X_valid.index)
+X_num_test = scaler.fit_transform(X_test[feats_num])
 X_num_test = pd.DataFrame(X_num_test, columns=feats_num)
+#%% Categorical features
+# encoder = OHE_topN(top_n=10)
+encoder = LabelEncoder()
+print(f'Transformation of categorical features. {encoder.__class__.__name__}.')
+#%% OHE_top10 encoder
+# encoder.fit(X_train[feats_cat])
+# X_cat_train = encoder.transform(X_train[feats_cat])
+# X_cat_valid = encoder.transform(X_valid[feats_cat])
+# X_cat_test = encoder.transform(X_test[feats_cat])
+# feats_cat = X_cat_train.columns
+#%% LabelEncoder
 
-# categorical features
-ohe = OHE_topN(top_n=10)
-ohe.fit(X_train[feats_cat])
-X_cat_train = ohe.fit_transform(X_train[feats_cat])
-X_cat_valid = ohe.transform(X_valid[feats_cat])
-X_cat_test = ohe.transform(X_test[feats_cat])
-feats_cat = X_cat_train.columns
+for feat in feats_cat:
+    
+    print('le:', feat)
+    encoder.fit(X_train[feat].values)
+    classes = encoder.classes_.tolist()
+    X_valid.loc[:, feat] = X_valid[feat].map(lambda s: s if s in classes else 'other').values
+    X_test.loc[:, feat] = X_test[feat].map(lambda s: s if s in classes else 'other').values
+    classes.append('other')
+    encoder.classes_ = classes
+    
+    X_train.loc[:, feat] = encoder.transform(X_train[feat].values)    
+    X_valid.loc[:, feat] = encoder.transform(X_valid[feat].values)
+    X_test.loc[:, feat] = encoder.transform(X_test[feat].values)
+#%% concatenatenate numerical and categorical data
 
-# concatenatenate numerical and categorical features
-X_clean_train = pd.concat([X_num_train, X_cat_train], axis=1)
-X_clean_valid = pd.concat([X_num_valid, X_cat_valid], axis=1)
-X_clean_test = pd.concat([X_num_test, X_cat_test], axis=1)
+X_clean_train = pd.concat([X_num_train, X_train[feats_cat]], axis=1)
+X_clean_valid = pd.concat([X_num_valid, X_valid[feats_cat]], axis=1)
+X_clean_test = pd.concat([X_num_test, X_test[feats_cat]], axis=1)
 feats = X_clean_train.columns.tolist()
 #%% functions to fit a model
 
@@ -98,11 +120,12 @@ def fit(X_train, y_train, X_valid=X_clean_valid, y_valid=y_valid, params=None):
     
     return lgbm
 
-lgbm = fit(X_clean_train, y_train)
+# lgbm = fit(X_clean_train, y_train)
 #%% UNDER SAMPLING
 rus = RandomUnderSampler(random_state=SEED)
 X_res, y_res = rus.fit_resample(X_clean_train, y_train) 
-#%% prepare to lgbm fitting !!!!!!!!!!!!!!!!!
+#%% LGBM fitting for extract feature importancies
+# prepare data for lgbm fitting 
 train_set = lgb.Dataset(data=X_res, label=y_res, 
                         feature_name=X_res.columns.tolist())
 valid_set = lgb.Dataset(data=X_clean_valid, label=y_valid,
@@ -138,30 +161,11 @@ print(score.round(4))
 ax = lgb.plot_importance(lgbm, max_num_features=200, 
                          figsize=(15, 15))
 plt.savefig('media/lgbm.plot_importance.png')
-#%% FEATURE IMPORTANCE TO DATAFRAME. EDA.
-lgbm = fit(X_res, y_res)
-
-df_fi = pd.Series(lgbm.feature_importance())
+ #%% FEATURE IMPORTANCE TO DATAFRAME. 
+ 
+df_fi = pd.DataFrame({'auc': lgbm.feature_importance(), 'feats': X_res.columns})
 df_fi.index = X_res.columns
-df_fi.sort_values(ascending=False, inplace=True)
-
-n = X_clean_train.shape[1]
-ncols = 4
-nrows = math.ceil(n/ncols)
-fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3, nrows*3))
-
-for idx, feat in enumerate(df_fi.index[:n]):
-    
-    ax = axes[idx//4, idx%4]
-    
-    X_clean_train.loc[:, feat].hist(ax=ax, color='b', alpha=0.4, label='train')
-    X_clean_valid.loc[:, feat].hist(ax=ax, color='r', alpha=0.5, label='valid')
-    X_clean_test.loc[:, feat].hist(ax=ax, color='g', alpha=0.4, label='test')
-    ax.legend()
-    ax.set_title(feat)
-
-fig.tight_layout()
-fig.savefig('media/distr.hist.train_valid_test.png')
+df_fi.sort_values(by='auc', ascending=False, inplace=True)
 #%% Sequential forward selection using feature_importance
 
 dct_res, dct_train, dct_valid, dct_test, iters = {}, {}, {}, {}, {}
@@ -192,13 +196,12 @@ dct = {'res': dct_res, 'train': dct_train, 'valid': dct_valid, 'n_estim': iters}
 df_res = pd.DataFrame(dct)
 
 df_res.sort_values(by='valid', ascending=False, inplace=True)
-
 #%% save my clean train, valid and test sets for tuning model
 
 # the best result on valid set
 best = df_res.head(1).index.values[0]
 feats_to_save = df_fi[:best].index 
-
+#%%
 train_set_clean = {
     'X_clean_train': X_clean_train[feats_to_save],
     'y_train': y_train,
