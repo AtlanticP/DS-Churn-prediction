@@ -49,10 +49,11 @@ def objective(params, X_train, y_train):
         for itrain, ivalid in kf.split(X_train, y_train):
             
             rus = RandomUnderSampler(random_state=SEED) 
-            X_res, y_res = rus.fit_resample(X_train.iloc[itrain, :], y_train[itrain])
+            X_res, y_res = rus.fit_resample(X_train[itrain, :], y_train[itrain])
+            eval_set = (X_train[ivalid, :], y_train[ivalid])
             gbm = lgb.LGBMClassifier(**params, n_estimators=1000)
             gbm.fit(X_res, y_res, 
-                    eval_set=[(X_train.iloc[ivalid, :], y_train[ivalid])],
+                    eval_set=[eval_set],
                     early_stopping_rounds=25, 
                     verbose=-1)
             
@@ -61,19 +62,21 @@ def objective(params, X_train, y_train):
         
         return {'loss': -np.mean(scores), 'params': params, 'status': STATUS_OK}
     
-    except ValueError:
+    except ValueError as e:
+        print(e)
         
         return {'loss': None, 'params': params, 'status': STATUS_FAIL}
 
 #%% HYPEROPT optimization
 
 space = {
-    # 'objective': 'binary',   ########### delete
-    # 'force_col_wise': True,
+    'objective': 'binary',   ########### delete
+    'metric': 'auc',
+    'force_col_wise': True,
     'class_weight':     hp.choice('class_weight', [None, 'balanced']),
     'learning_rate':    hp.choice('learning_rate',    np.arange(0.01, 0.2, 0.02)),
     'num_leaves':       ho_scope.int(hp.quniform('num_leaves', 8, 128, 2)),
-    # 'max_depth':        hp.choice('max_depth',        np.arange(1, 20, 1, dtype=int)),
+    'max_depth':        hp.choice('max_depth',        np.arange(1, 20, 1, dtype=int)),
     'min_child_weight': hp.choice('min_child_weight', np.arange(1, 8, 1, dtype=int)),
     'colsample_bytree': hp.choice('colsample_bytree', np.arange(0.3, 0.8, 0.1)),
     'subsample':        hp.uniform('subsample', 0.5, 1),
@@ -83,101 +86,103 @@ space = {
 }
 
 trials = Trials()
-best = fmin(fn=partial(objective, X_train=X_train, y_train=y_train), 
+best = fmin(fn=partial(objective, X_train=X_train.values, y_train=y_train.values), 
             space=space, algo=tpe.suggest, 
-            max_evals=2, trials=trials, 
+            max_evals=100, trials=trials, 
             show_progressbar=True, 
             rstate=np.random.RandomState(SEED))
+
 res = trials.results
 res = [{**i, **i['params']} for i in res]
+# 74%   это было!
 df_hyp = pd.DataFrame(res)
 df_hyp['loss'] = df_hyp['loss'].apply(abs)
 df_hyp.sort_values(by='loss', ascending=False, inplace=True)
 df_hyp.drop(['params', 'status'], axis=1, inplace=True)
 #%%
-# with open('pkl/hyperopt_100.pkl', 'wb') as file:
-#     pkl.dump(df_hyp, file)    
+with open('pkl/hyperopt_100_le.pkl', 'wb') as file:
+    pkl.dump(df_hyp, file)    
 
-with open('pkl/hyperopt_100.pkl', 'rb') as file:
-    df_hyp = pkl.load(file)    
-#%% PREDICTION with best params of HYPEROPT :0.715438 DELETE
+with open('pkl/hyperopt_500.pkl', 'rb') as file:
+    df_hyp_100_le = pkl.load(file)    
+# #%% PREDICTION with best params of HYPEROPT :0.715438 DELETE
 
-best_10 = df_hyp.drop('loss', axis=1).head(10).T.to_dict()
+# best_10 = df_hyp.drop('loss', axis=1).head(10).T.to_dict()
 
-rus = RandomUnderSampler(random_state=SEED) 
-X_res, y_res = rus.fit_resample(X_train, y_train)
-ress = {}   # auc of train, valid sets
+# rus = RandomUnderSampler(random_state=SEED) 
+# X_res, y_res = rus.fit_resample(X_train, y_train)
+# ress = {}   # auc of train, valid sets
 
-for key, params in best_10.items():
+# for key, params in best_10.items():
 
-    train_set = lgb.Dataset(data=X_res, label=y_res)
-    valid_set = lgb.Dataset(data=X_valid, label=y_valid, 
-                            reference=train_set)
+#     train_set = lgb.Dataset(data=X_res, label=y_res)
+#     valid_set = lgb.Dataset(data=X_valid, label=y_valid, 
+#                             reference=train_set)
     
-    lgbm = lgb.train(params=params, train_set=train_set, 
-                      valid_sets=valid_set,
-                      early_stopping_rounds=25, 
-                      num_boost_round=5000,
-                      feval=roc_auc_feval,
-                      verbose_eval=-1)
-#%% train BEST model  probably DELETE
-params_hyp_best = df_hyp.drop('loss', axis=1).iloc[0, :].T.to_dict()
+#     lgbm = lgb.train(params=params, train_set=train_set, 
+#                       valid_sets=valid_set,
+#                       early_stopping_rounds=25, 
+#                       num_boost_round=5000,
+#                       feval=roc_auc_feval,
+#                       verbose_eval=-1)
+# #%% train BEST model  probably DELETE
+# params_hyp_best = df_hyp.drop('loss', axis=1).iloc[0, :].T.to_dict()
 
-rus = RandomUnderSampler(random_state=SEED) 
-X_res, y_res = rus.fit_resample(X_train, y_train)
-train_set = lgb.Dataset(data=X_res, label=y_res)
-valid_set = lgb.Dataset(data=X_valid, label=y_valid, 
-                        reference=train_set)
+# rus = RandomUnderSampler(random_state=SEED) 
+# X_res, y_res = rus.fit_resample(X_train, y_train)
+# train_set = lgb.Dataset(data=X_res, label=y_res)
+# valid_set = lgb.Dataset(data=X_valid, label=y_valid, 
+#                         reference=train_set)
 
-lgbm_best = lgb.train(params_hyp_best, train_set, num_boost_round=5000,
-                      valid_sets=valid_set, valid_names=feats,
-                      feval=roc_auc_feval, early_stopping_rounds=25,
-                      verbose_eval=False)
+# lgbm_best = lgb.train(params_hyp_best, train_set, num_boost_round=5000,
+#                       valid_sets=valid_set, valid_names=feats,
+#                       feval=roc_auc_feval, early_stopping_rounds=25,
+#                       verbose_eval=False)
 
-n = lgbm_best.best_iteration  # number of estimators
-lgbm_best2 = lgb.LGBMClassifier( **params_hyp_best)
-lgbm_best2.fit(X_res, y_res, eval_set=[(X_valid, y_valid)],
-               early_stopping_rounds=25)
+# n = lgbm_best.best_iteration  # number of estimators
+# lgbm_best2 = lgb.LGBMClassifier( **params_hyp_best)
+# lgbm_best2.fit(X_res, y_res, eval_set=[(X_valid, y_valid)],
+#                early_stopping_rounds=25)
 
-preds = lgbm_best.predict(X_res)
-score = roc_auc_score(y_res, preds)
-print('auc score of best_hyp_model on resampled: ', score.round(4))
+# preds = lgbm_best.predict(X_res)
+# score = roc_auc_score(y_res, preds)
+# print('auc score of best_hyp_model on resampled: ', score.round(4))
 
-preds = lgbm_best2.predict(X_res)
-score = roc_auc_score(y_res, preds)
-print('auc score of best_hyp_model on resampled 2: ', score.round(4))
+# preds = lgbm_best2.predict(X_res)
+# score = roc_auc_score(y_res, preds)
+# print('auc score of best_hyp_model on resampled 2: ', score.round(4))
 
-preds = lgbm_best.predict(X_train)
-score = roc_auc_score(y_train, preds)
-print('auc score of best_hyp_model on train: ', score.round(4))
+# preds = lgbm_best.predict(X_train)
+# score = roc_auc_score(y_train, preds)
+# print('auc score of best_hyp_model on train: ', score.round(4))
 
-preds = lgbm_best2.predict(X_train)
-score = roc_auc_score(y_train, preds)
-print('auc score of best_hyp_model on train2: ', score.round(4))
+# preds = lgbm_best2.predict(X_train)
+# score = roc_auc_score(y_train, preds)
+# print('auc score of best_hyp_model on train2: ', score.round(4))
 
-preds = lgbm_best.predict(X_valid)
-score = roc_auc_score(y_valid, preds)
-print('auc score of best_hyp_model on valid: ', score.round(4))
+# preds = lgbm_best.predict(X_valid)
+# score = roc_auc_score(y_valid, preds)
+# print('auc score of best_hyp_model on valid: ', score.round(4))
 
-preds = lgbm_best2.predict(X_valid)
-score = roc_auc_score(y_valid, preds)
-print('auc score of best_hyp_model on valid2: ', score.round(4))
-#%% TO DELETE
+# preds = lgbm_best2.predict(X_valid)
+# score = roc_auc_score(y_valid, preds)
+# print('auc score of best_hyp_model on valid2: ', score.round(4))
+# #%% TO DELETE
 
-params_hyp_best = df_hyp.drop(['loss'], axis=1).iloc[0, :].to_dict()
+# params_hyp_best = df_hyp.drop(['loss'], axis=1).iloc[0, :].to_dict()
 
-rus = RandomUnderSampler(random_state=SEED) #%%
-X_res, y_res = rus.fit_resample(X_train, y_train)
+# rus = RandomUnderSampler(random_state=SEED) #%%
+# X_res, y_res = rus.fit_resample(X_train, y_train)
 
 
-gbm = lgb.LGBMClassifier(**params_hyp_best, n_estimators=1000)
-gbm.fit(X_res, y_res, 
-        eval_set=[(X_valid, y_valid)],
-        early_stopping_rounds=25, 
-        verbose=-1)
+# gbm = lgb.LGBMClassifier(**params_hyp_best, n_estimators=1000)
+# gbm.fit(X_res, y_res, 
+#         eval_set=[(X_valid, y_valid)],
+#         early_stopping_rounds=25, 
+#         verbose=-1)
 
-preds = gbm.booster_.predict(X_test, raw_score=False)
-print(preds[:3])
+# preds = gbm.booster_.predict(X_test, raw_score=False)
+# print(preds[:3])
 
-df_pred_test = pd.DataFrame({'Id': np.arange(len(preds)), 'result': preds})
-df_pred_test.to_csv('y_test.csv', sep=',', index=False)
+# df_pred_test = pd.DataFrame({'Id': np.arange(len(preds)), 'result': preds})
+# df_pred_test.to_csv('y_test.csv', sep=',', index=False)
