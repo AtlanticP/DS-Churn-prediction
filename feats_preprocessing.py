@@ -1,10 +1,10 @@
 import lightgbm as lgb
 from imblearn.under_sampling import RandomUnderSampler
 
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score
 
-# from ohe_topN import OHE_topN
+from ohe_topN import OHE_topN
   
 import pickle as pkl  
 import pandas as pd
@@ -52,35 +52,20 @@ X_num_valid = pd.DataFrame(X_num_valid, columns=feats_num, index=X_valid.index)
 X_num_test = scaler.fit_transform(X_test[feats_num])
 X_num_test = pd.DataFrame(X_num_test, columns=feats_num)
 #%% Categorical features
-# encoder = OHE_topN(top_n=10)
-encoder = LabelEncoder()
+encoder = OHE_topN(top_n=10)
+# encoder = LabelEncoder()
 print(f'Transformation of categorical features. {encoder.__class__.__name__}.')
 #%% OHE_top10 encoder
-# encoder.fit(X_train[feats_cat])
-# X_cat_train = encoder.transform(X_train[feats_cat])
-# X_cat_valid = encoder.transform(X_valid[feats_cat])
-# X_cat_test = encoder.transform(X_test[feats_cat])
-# feats_cat = X_cat_train.columns
-#%% LabelEncoder
-
-for feat in feats_cat:
-    
-    print('le:', feat)
-    encoder.fit(X_train[feat].values)
-    classes = encoder.classes_.tolist()
-    X_valid.loc[:, feat] = X_valid[feat].map(lambda s: s if s in classes else 'other').values
-    X_test.loc[:, feat] = X_test[feat].map(lambda s: s if s in classes else 'other').values
-    classes.append('other')
-    encoder.classes_ = classes
-    
-    X_train.loc[:, feat] = encoder.transform(X_train[feat].values)    
-    X_valid.loc[:, feat] = encoder.transform(X_valid[feat].values)
-    X_test.loc[:, feat] = encoder.transform(X_test[feat].values)
+encoder.fit(X_train[feats_cat])
+X_cat_train = encoder.transform(X_train[feats_cat])
+X_cat_valid = encoder.transform(X_valid[feats_cat])
+X_cat_test = encoder.transform(X_test[feats_cat])
+feats_cat = X_cat_train.columns
 #%% concatenatenate numerical and categorical data
 
-X_clean_train = pd.concat([X_num_train, X_train[feats_cat]], axis=1)
-X_clean_valid = pd.concat([X_num_valid, X_valid[feats_cat]], axis=1)
-X_clean_test = pd.concat([X_num_test, X_test[feats_cat]], axis=1)
+X_clean_train = pd.concat([X_num_train, X_cat_train], axis=1)
+X_clean_valid = pd.concat([X_num_valid, X_cat_valid], axis=1)
+X_clean_test = pd.concat([X_num_test, X_cat_test], axis=1)
 feats = X_clean_train.columns.tolist()
 #%% functions to fit a model
 
@@ -196,12 +181,10 @@ dct = {'res': dct_res, 'train': dct_train, 'valid': dct_valid, 'n_estim': iters}
 df_res = pd.DataFrame(dct)
 
 df_res.sort_values(by='valid', ascending=False, inplace=True)
-#%% save my clean train, valid and test sets for tuning model
-
-# the best result on valid set
+#%% the best result on valid set
 best = df_res.head(1).index.values[0]
 feats_to_save = df_fi[:best].index 
-#%%
+#%% save my clean train, valid and test sets for tuning model
 train_set_clean = {
     'X_clean_train': X_clean_train[feats_to_save],
     'y_train': y_train,

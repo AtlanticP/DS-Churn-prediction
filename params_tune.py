@@ -55,6 +55,7 @@ def objective(params, X_train, y_train):
             gbm.fit(X_res, y_res, 
                     eval_set=[eval_set],
                     early_stopping_rounds=25, 
+                    eval_metric='auc',
                     verbose=-1)
             
             score = dict(gbm.best_score_['valid_0'])['auc']
@@ -69,42 +70,109 @@ def objective(params, X_train, y_train):
 
 #%% HYPEROPT optimization
 
-space = {
-    'objective': 'binary',   ########### delete
-    'metric': 'auc',
-    'force_col_wise': True,
-    'class_weight':     hp.choice('class_weight', [None, 'balanced']),
-    'learning_rate':    hp.choice('learning_rate',    np.arange(0.01, 0.2, 0.02)),
-    'num_leaves':       ho_scope.int(hp.quniform('num_leaves', 8, 128, 2)),
-    'max_depth':        hp.choice('max_depth',        np.arange(1, 20, 1, dtype=int)),
-    'min_child_weight': hp.choice('min_child_weight', np.arange(1, 8, 1, dtype=int)),
-    'colsample_bytree': hp.choice('colsample_bytree', np.arange(0.3, 0.8, 0.1)),
-    'subsample':        hp.uniform('subsample', 0.5, 1),
-    'reg_alpha':        hp.uniform('reg_alpha', 0.01, 1.0),
-    'reg_lambda':       hp.uniform('reg_lambda', 0.01, 1.0),
-    'metric': 'auc'
-}
+# space = {
+#     'objective': 'binary',   ########### delete
+#     'metric': 'auc',
+#     'force_col_wise': True,
+#     'class_weight':     hp.choice('class_weight', [None, 'balanced']),
+#     'learning_rate':    hp.choice('learning_rate',    np.arange(0.01, 0.2, 0.02)),
+#     'num_leaves':       ho_scope.int(hp.quniform('num_leaves', 8, 128, 2)),
+#     'max_depth':        hp.choice('max_depth',        np.arange(1, 20, 1, dtype=int)),
+#     'min_child_weight': hp.choice('min_child_weight', np.arange(1, 8, 1, dtype=int)),
+#     'colsample_bytree': hp.choice('colsample_bytree', np.arange(0.3, 0.8, 0.1)),
+#     'subsample':        hp.uniform('subsample', 0.5, 1),
+#     'reg_alpha':        hp.uniform('reg_alpha', 0.01, 1.0),
+#     'reg_lambda':       hp.uniform('reg_lambda', 0.01, 1.0),
+#     'metric': 'auc'
+# }
 
-trials = Trials()
-best = fmin(fn=partial(objective, X_train=X_train.values, y_train=y_train.values), 
-            space=space, algo=tpe.suggest, 
-            max_evals=100, trials=trials, 
-            show_progressbar=True, 
-            rstate=np.random.RandomState(SEED))
+# trials = Trials()
+# best = fmin(fn=partial(objective, X_train=X_train.values, y_train=y_train.values), 
+#             space=space, algo=tpe.suggest, 
+#             max_evals=100, trials=trials, 
+#             show_progressbar=True, 
+#             rstate=np.random.RandomState(SEED))
 
-res = trials.results
-res = [{**i, **i['params']} for i in res]
-# 74%   это было!
-df_hyp = pd.DataFrame(res)
-df_hyp['loss'] = df_hyp['loss'].apply(abs)
-df_hyp.sort_values(by='loss', ascending=False, inplace=True)
-df_hyp.drop(['params', 'status'], axis=1, inplace=True)
+# res = trials.results
+# res = [{**i, **i['params']} for i in res]
+# # 74%   это было!
+# df_hyp = pd.DataFrame(res)
+# df_hyp['loss'] = df_hyp['loss'].apply(abs)
+# df_hyp.sort_values(by='loss', ascending=False, inplace=True)
+# df_hyp.drop(['params', 'status'], axis=1, inplace=True)
 #%%
-with open('pkl/hyperopt_100_le.pkl', 'wb') as file:
-    pkl.dump(df_hyp, file)    
+# with open('pkl/hyperopt_100_ohe.pkl', 'wb') as file:
+#     pkl.dump(df_hyp, file)    
 
-with open('pkl/hyperopt_500.pkl', 'rb') as file:
-    df_hyp_100_le = pkl.load(file)    
+# with open('pkl/hyperopt_100_ohe.pkl', 'rb') as file:
+#     df_hyp_100_le = pkl.load(file)    
+#%% Grid search using cross-validation
+gridParams = {
+    'learning_rate': np.arange(0.15, 0.21, 0.01),
+    # 'class_weight': ['balanced'],
+    # 'num_leaves': np.arange(50, 70, 5),
+    # 'boosting_type' : ['gbdt'],
+    # 'objective' : ['binary'],
+    # 'colsample_bytree' : np.arange(0.5, 0.65, 0.05),
+    # 'subsample' : np.arange(0.85, 1.0, 0.1),
+    # 'reg_alpha' : np.arange(0.45, 0.85, 5),
+    # 'reg_lambda' : np.arange(0.05, 0.70, 0.05),
+    }
+
+
+n_iters = list(map(lambda x: len(x), gridParams.values()))
+n_iters = np.prod(n_iters)
+print('the number of parameters to iter is', n_iters)
+#%%
+skf = StratifiedKFold(n_splits=3, random_state=SEED, shuffle=True)
+results = []
+
+for idx, prods in tqdm(enumerate(product(*gridParams.values()), start=1)):
+    
+    params = {}
+    
+    
+    for key, val in zip(gridParams.keys(), prods):
+    
+        params[key] = val
+        val_loss = []      # loss on validation set
+        cval_loss = []       # loss on validation set of cross_validation(X_train)   
+
+        for itrain, ivalid in skf.split(X_train.values, y_train.values):
+            
+            rus = RandomUnderSampler(random_state=SEED) 
+            X_res, y_res = rus.fit_resample(X_train.values[itrain, :], y_train.values[itrain])
+            eval_set = (X_train.values[ivalid, :], y_train.values[ivalid])
+            gbm = lgb.LGBMClassifier(**params, n_estimators=1000, 
+                                     n_jobs=1, verbose=-1,
+                                     random_state=np.random.RandomState(SEED),)
+            gbm.fit(X_res, y_res, 
+                    eval_set=[eval_set],
+                    eval_metric = 'auc',
+                    early_stopping_rounds=25, 
+                    verbose=0)
+            
+            cval_score = dict(gbm.best_score_['valid_0'])['auc']
+            cval_loss.append(cval_score)
+            
+            preds = gbm.booster_.predict(X_valid.values)
+            val_score = roc_auc_score(y_valid.values, preds)
+            val_loss.append(val_score)
+        
+        results.append({
+            'cval_loss': np.mean(cval_loss),
+            'val_loss': np.mean(val_loss),
+            'params': params
+            }) 
+
+res = [{**x, **x['params']} for x in results]
+df_grid = pd.DataFrame(res)
+df_grid.drop('params', axis=1, inplace=True)
+df_grid.sort_values(by='val_loss', ascending=False, inplace=True)
+
+with open('media/df_grid.pkl', 'wb') as file:
+    pkl.dump(df_grid, file)
+#%%    
 # #%% PREDICTION with best params of HYPEROPT :0.715438 DELETE
 
 # best_10 = df_hyp.drop('loss', axis=1).head(10).T.to_dict()
